@@ -14,8 +14,7 @@
 | **Project Title** | **SmartCart AI** |
 | **Team Name** | **LIFTOFF** (Team Leader: Ashraf Hussain Siddiqui) |
 | **Institution** | **Universal SkillTech University (USTU)** |
-| **Submission Status** | Final Submitted (Oct 10, 2026) |
-| **Presentation Deck** | [Google Drive Presentation](https://drive.google.com/file/d/1SlEyEoBlBbtSVJINsRr_drxD9l10xcfI/view?usp=drive_link) |
+| **Presentation Deck** | [Google Drive Presentation](https://drive.google.com/file/d/1SlEyEoBIBbtSVJiNsRr_drxD9i10xcfl/view) |
 
 ---
 
