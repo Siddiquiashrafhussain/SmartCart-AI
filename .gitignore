@@ -23,11 +23,13 @@ wheels/
 .installed.cfg
 *.egg
 
-# Environment variables, credentials, and secrets
+# Virtual environments & local databases
 .env
 .env.*
 *.env
 !.env.example
+*.db
+*.sqlite3
 .venv
 env/
 venv/
