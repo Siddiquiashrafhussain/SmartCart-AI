@@ -14,6 +14,7 @@ from backend.app.schemas.cart import (
     SessionCreate,
     SessionResponse,
     CartItemResponse,
+    CartItemUpdate,
     ScanRequest
 )
 
@@ -169,4 +170,95 @@ def scan_and_add_to_cart(payload: ScanRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(session)
     logger.info(f"Item scanned: '{product.name}' in session {session.id}")
+    return _format_session_response(session)
+
+
+@router.patch("/{session_id}/items/{item_id}", response_model=SessionResponse)
+def update_cart_item(
+    session_id: int,
+    item_id: int,
+    payload: CartItemUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Update the quantity of a specific item in the virtual cart.
+    If quantity is 0, the item is removed from the cart.
+    """
+    session = (
+        db.query(ShoppingSession)
+        .options(joinedload(ShoppingSession.items).joinedload(CartItem.product))
+        .filter(ShoppingSession.id == session_id)
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Shopping session {session_id} not found."
+        )
+
+    if session.status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot modify items in a session with status '{session.status}'."
+        )
+
+    cart_item = next((item for item in session.items if item.id == item_id), None)
+    if not cart_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Cart item {item_id} not found in session {session_id}."
+        )
+
+    if payload.quantity == 0:
+        db.delete(cart_item)
+        logger.info(f"Deleted cart item {item_id} from session {session_id}")
+    else:
+        cart_item.quantity = payload.quantity
+        logger.info(f"Updated cart item {item_id} quantity to {payload.quantity} in session {session_id}")
+
+    db.commit()
+    db.refresh(session)
+    return _format_session_response(session)
+
+
+@router.delete("/{session_id}/items/{item_id}", response_model=SessionResponse)
+def remove_cart_item(
+    session_id: int,
+    item_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Remove an item entirely from the virtual shopping cart.
+    """
+    session = (
+        db.query(ShoppingSession)
+        .options(joinedload(ShoppingSession.items).joinedload(CartItem.product))
+        .filter(ShoppingSession.id == session_id)
+        .first()
+    )
+
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Shopping session {session_id} not found."
+        )
+
+    if session.status != "ACTIVE":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot remove items from a session with status '{session.status}'."
+        )
+
+    cart_item = next((item for item in session.items if item.id == item_id), None)
+    if not cart_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Cart item {item_id} not found in session {session_id}."
+        )
+
+    db.delete(cart_item)
+    db.commit()
+    db.refresh(session)
+    logger.info(f"Removed cart item {item_id} from session {session_id}")
     return _format_session_response(session)

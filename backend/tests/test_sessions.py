@@ -90,3 +90,49 @@ def test_scan_unrecognized_barcode_returns_404(client):
     )
     assert scan_res.status_code == 404
     assert "does not match" in scan_res.json()["detail"]
+
+
+def test_update_and_remove_cart_item(client):
+    # 1. Start session
+    session_res = client.post(
+        "/api/v1/sessions/start",
+        json={"user_id": "shopper_modify", "cart_id": "cart_mod_01"}
+    )
+    session_id = session_res.json()["id"]
+
+    # 2. Add an item
+    scan_res = client.post(
+        "/api/v1/sessions/scan",
+        json={"session_id": session_id, "barcode": "8901030018241"}
+    )
+    assert scan_res.status_code == 200
+    item_id = scan_res.json()["items"][0]["id"]
+    assert scan_res.json()["items"][0]["quantity"] == 1
+
+    # 3. Update quantity to 3
+    patch_res = client.patch(
+        f"/api/v1/sessions/{session_id}/items/{item_id}",
+        json={"quantity": 3}
+    )
+    assert patch_res.status_code == 200
+    assert patch_res.json()["items"][0]["quantity"] == 3
+    assert patch_res.json()["total_items"] == 3
+
+    # 4. Update quantity to 0 -> item is removed
+    zero_res = client.patch(
+        f"/api/v1/sessions/{session_id}/items/{item_id}",
+        json={"quantity": 0}
+    )
+    assert zero_res.status_code == 200
+    assert len(zero_res.json()["items"]) == 0
+    assert zero_res.json()["total_items"] == 0
+
+    # 5. Add another item and test DELETE endpoint
+    scan_res2 = client.post(
+        "/api/v1/sessions/scan",
+        json={"session_id": session_id, "barcode": "8901030029312"}
+    )
+    new_item_id = scan_res2.json()["items"][0]["id"]
+    del_res = client.delete(f"/api/v1/sessions/{session_id}/items/{new_item_id}")
+    assert del_res.status_code == 200
+    assert len(del_res.json()["items"]) == 0

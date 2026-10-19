@@ -4,7 +4,7 @@ SmartCart AI - Shopping Session, Cart Items, and Scan Events ORM Models
 
 from typing import Optional
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, Float, ForeignKey, DateTime, JSON
+from sqlalchemy import String, Integer, Float, Boolean, ForeignKey, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.models.base import Base, TimestampMixin
 
@@ -86,8 +86,10 @@ class ScanEvent(Base, TimestampMixin):
         nullable=False,
         index=True
     )
+    quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     client_timestamp: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     idempotency_key: Mapped[Optional[str]] = mapped_column(String(64), unique=True, nullable=True, index=True)
+    is_simulated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     raw_payload: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     # Relationships

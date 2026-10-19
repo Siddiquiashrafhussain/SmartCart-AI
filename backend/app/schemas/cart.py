@@ -43,3 +43,7 @@ class ScanRequest(BaseModel):
     barcode: str = Field(..., min_length=4, max_length=64, description="Scanned barcode string")
     client_timestamp: Optional[datetime] = Field(default=None, description="Client device scan timestamp")
     idempotency_key: Optional[str] = Field(default=None, max_length=64, description="UUID preventing duplicate charges")
+
+
+class CartItemUpdate(BaseModel):
+    quantity: int = Field(..., ge=0, description="Updated quantity (0 deletes item)")

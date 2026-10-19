@@ -7,7 +7,7 @@ from backend.app.models.base import Base, TimestampMixin
 from backend.app.models.product import Product, Inventory
 from backend.app.models.shelf import Shelf, Planogram
 from backend.app.models.session import ShoppingSession, CartItem, ScanEvent
-from backend.app.models.verification import SensorEvent, VerificationEvent
+from backend.app.models.verification import SensorEvent, ShelfPickupEvent, VerificationEvent
 from backend.app.models.alert import RestockAlert, Receipt
 
 __all__ = [
@@ -21,6 +21,7 @@ __all__ = [
     "CartItem",
     "ScanEvent",
     "SensorEvent",
+    "ShelfPickupEvent",
     "VerificationEvent",
     "RestockAlert",
     "Receipt",
