@@ -43,6 +43,7 @@ venv.bak/
 runs/
 *.mp4
 *.avi
+backend/app/data/uploads/
 
 # Node.js
 node_modules/

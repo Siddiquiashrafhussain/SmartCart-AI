@@ -78,18 +78,35 @@ class VerificationEvent(Base, TimestampMixin):
     __tablename__ = "verification_events"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    verification_id: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        unique=True,
+        nullable=True,
+        index=True
+    )  # UUID for external reference and audit
     session_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("shopping_sessions.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
+    outcome: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True
+    )  # NO_DISCREPANCY_DETECTED, POTENTIAL_DISCREPANCY, INCONCLUSIVE
     verdict: Mapped[str] = mapped_column(
         String(32),
         nullable=False,
         index=True
-    )  # CONSISTENT, UNCERTAIN, MISMATCH
+    )  # Backwards compatibility: CONSISTENT, UNCERTAIN, MISMATCH
     confidence_score: Mapped[float] = mapped_column(Float, nullable=False)
+    checkout_decision: Mapped[Optional[str]] = mapped_column(
+        String(64),
+        nullable=True
+    )  # AUTO_APPROVE, STAFF_REVIEW_RECOMMENDED
+    staff_review_recommended: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_simulated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     evidence_summary: Mapped[dict] = mapped_column(JSON, nullable=False)
 
     # Relationships

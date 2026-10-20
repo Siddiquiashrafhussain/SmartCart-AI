@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     CORRELATION_WINDOW_SECONDS: float = Field(default=15.0, description="Max time delta tau for event correlation")
     WEIGHT_TOLERANCE_GRAMS: float = Field(default=50.0, description="Tolerance in grams for weight discrepancy detection")
     MIN_VERIFICATION_CONFIDENCE: float = Field(default=0.85, description="Threshold for automatic transaction verification")
+    ALLOW_INCONCLUSIVE_CHECKOUT_BYPASS: bool = Field(default=False, description="Whether inconclusive sessions can auto-approve without staff review")
+
+    # Computer Vision & YOLO Shelf-Auditing
+    YOLO_MODEL_PATH: str = Field(default="yolov8n.pt", description="Path to YOLO model weights file")
+    YOLO_CONFIDENCE_THRESHOLD: float = Field(default=0.25, description="Confidence threshold for YOLO detections")
+    YOLO_IOU_THRESHOLD: float = Field(default=0.45, description="NMS IoU threshold for YOLO detections")
+    IMAGE_MAX_SIZE_MB: int = Field(default=10, description="Maximum allowed shelf image upload size in MB")
+    IMAGE_ALLOWED_EXTENSIONS: List[str] = ["jpg", "jpeg", "png", "webp"]
+    MEDIA_UPLOAD_DIR: str = Field(default="backend/app/data/uploads", description="Directory to store uploaded images")
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

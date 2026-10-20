@@ -170,10 +170,15 @@ DEMO_SHELVES = [
 ]
 
 
-def seed_database(db: Session = None):
+def seed_database(db: Session = None, reset: bool = False):
     """
     Seed database with initial catalog, inventory, and shelf planograms.
     """
+    if reset:
+        logger.info("Dropping and recreating all tables...")
+        Base.metadata.drop_all(bind=engine)
+        Base.metadata.create_all(bind=engine)
+
     should_close = False
     if db is None:
         Base.metadata.create_all(bind=engine)
@@ -183,7 +188,7 @@ def seed_database(db: Session = None):
     try:
         logger.info("Checking database seed status...")
         existing_count = db.query(Product).count()
-        if existing_count > 0:
+        if existing_count > 0 and not reset:
             logger.info(f"Database already seeded with {existing_count} products. Skipping.")
             return
 
@@ -236,4 +241,8 @@ def seed_database(db: Session = None):
 
 
 if __name__ == "__main__":
-    seed_database()
+    import argparse
+    parser = argparse.ArgumentParser(description="SmartCart AI Database Seed Script")
+    parser.add_argument("--reset", action="store_true", help="Drop and recreate all database tables before seeding")
+    args = parser.parse_args()
+    seed_database(reset=args.reset)

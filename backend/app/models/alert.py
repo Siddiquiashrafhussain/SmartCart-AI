@@ -4,7 +4,7 @@ SmartCart AI - Restock Alert and Digital Receipt ORM Models
 
 from typing import Optional
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, Float, Boolean, ForeignKey, DateTime
+from sqlalchemy import String, Integer, Float, Boolean, ForeignKey, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.models.base import Base, TimestampMixin
 
@@ -34,6 +34,8 @@ class RestockAlert(Base, TimestampMixin):
     threshold: Mapped[int] = mapped_column(Integer, nullable=False)
     is_resolved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution_note: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    evidence_metadata: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
 
     # Relationships
     shelf: Mapped["backend.app.models.shelf.Shelf"] = relationship("Shelf")

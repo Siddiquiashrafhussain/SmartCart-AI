@@ -31,7 +31,7 @@ def get_or_create_demo_session(db, user_id="sim_shopper_01", cart_id="sim_cart_0
     return session
 
 
-def run_scenario(scenario_name: str) -> Dict[str, Any]:
+def run_scenario(scenario_name: str, time_offset_minutes: int = 0) -> Dict[str, Any]:
     """
     Execute a deterministic simulation scenario and persist events labeled with is_simulated=True.
     """
@@ -39,8 +39,10 @@ def run_scenario(scenario_name: str) -> Dict[str, Any]:
     db = SessionLocal()
 
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc) + timedelta(minutes=time_offset_minutes * 10)
         session = get_or_create_demo_session(db)
+        session.created_at = now
+        db.commit()
 
         if scenario_name == "normal_purchase":
             # Scenario 1: Matching Scan, Camera Pickup, and Weight Shift
@@ -181,6 +183,12 @@ def run_scenario(scenario_name: str) -> Dict[str, Any]:
                 raw_payload={"barcode": noodles.barcode if noodles else "8901030122211"}
             )
             db.add(scan)
+            db.add(CartItem(
+                session_id=session.id,
+                product_id=noodles.id if noodles else 12,
+                quantity=1,
+                unit_price=noodles.price if noodles else 0.99
+            ))
 
             db.commit()
             return {
@@ -200,7 +208,7 @@ def run_scenario(scenario_name: str) -> Dict[str, Any]:
             pickup = ShelfPickupEvent(
                 shelf_id=shelf_c.id if shelf_c else 3,
                 product_id=soup.id if soup else 9,
-                detected_class="canned_food",
+                detected_class="soup",
                 confidence=0.92,
                 quantity_removed=2,  # 2 cans observed
                 timestamp=now,
@@ -217,6 +225,12 @@ def run_scenario(scenario_name: str) -> Dict[str, Any]:
                 is_simulated=True
             )
             db.add(scan)
+            db.add(CartItem(
+                session_id=session.id,
+                product_id=soup.id if soup else 9,
+                quantity=1,
+                unit_price=soup.price if soup else 2.50
+            ))
 
             db.commit()
             return {
@@ -241,6 +255,12 @@ def run_scenario(scenario_name: str) -> Dict[str, Any]:
                 is_simulated=True
             )
             db.add(scan)
+            db.add(CartItem(
+                session_id=session.id,
+                product_id=cereal.id if cereal else 1,
+                quantity=1,
+                unit_price=cereal.price if cereal else 4.99
+            ))
 
             # Camera event arrives at t + 45s (out of synchronization window)
             pickup = ShelfPickupEvent(
@@ -275,6 +295,12 @@ def run_scenario(scenario_name: str) -> Dict[str, Any]:
                 is_simulated=True
             )
             db.add(scan)
+            db.add(CartItem(
+                session_id=session.id,
+                product_id=cereal.id if cereal else 1,
+                quantity=1,
+                unit_price=cereal.price if cereal else 4.99
+            ))
             db.commit()
 
             return {
@@ -304,6 +330,8 @@ ALL_SCENARIOS = [
 
 
 def main():
+    from backend.app.services.verification_engine import VerificationEngine
+
     parser = argparse.ArgumentParser(description="SmartCart AI Multi-Modal Telemetry Simulator")
     parser.add_argument(
         "--scenario",
@@ -311,22 +339,47 @@ def main():
         default="normal_purchase",
         help="Test scenario to generate (or 'all' to run full suite)"
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        default=True,
+        help="Automatically run verification engine after simulating scenario"
+    )
     args = parser.parse_args()
 
     scenarios_to_run = ALL_SCENARIOS if args.scenario == "all" else [args.scenario]
 
-    for sc in scenarios_to_run:
-        print(f"\n=== Running Simulation Scenario: {sc} ===")
-        result = run_scenario(sc)
-        print(f"Result Status: {result['status']}")
-        print(f"Session ID: {result['session_id']}")
-        print(f"Expected Verdict: {result['expected_verdict']}")
-        print(f"Evidence Generated: {result['evidence_count']} events")
-        print(f"Description: {result['description']}")
-        print("Events persisted with 'is_simulated=True'.")
+    db = SessionLocal()
+    engine = VerificationEngine(db)
 
-    if args.scenario == "all":
-        print(f"\n[OK] Successfully executed and persisted all {len(ALL_SCENARIOS)} simulation scenarios.")
+    try:
+        for i, sc in enumerate(scenarios_to_run):
+            print(f"\n=======================================================")
+            print(f"=== Simulation Scenario: {sc} ===")
+            print(f"=======================================================")
+            result = run_scenario(sc, time_offset_minutes=i)
+            print(f"Scenario Status:   {result['status']}")
+            print(f"Session ID:        {result['session_id']}")
+            print(f"Expected Verdict:  {result['expected_verdict']}")
+            print(f"Evidence Created:  {result['evidence_count']} events (is_simulated=True)")
+            print(f"Description:       {result['description']}")
+
+            if args.verify:
+                verif = engine.evaluate_session(result['session_id'])
+                print(f"\n>>> [VERIFICATION ENGINE EVALUATION] <<<")
+                print(f"Verification UUID: {verif.verification_id}")
+                print(f"Outcome:           {verif.outcome.value}")
+                print(f"Legacy Verdict:    {verif.verdict}")
+                print(f"Checkout Decision: {verif.checkout_decision.value}")
+                print(f"Confidence Score:  {verif.confidence_score * 100:.1f}%")
+                print(f"Staff Review:      {verif.staff_review_recommended}")
+                print(f"Reasons:           {verif.reasons}")
+                print(f"Safety Notice:     {verif.safety_and_trust_notice}")
+
+        if args.scenario == "all":
+            print(f"\n[OK] Successfully executed, persisted, and verified all {len(ALL_SCENARIOS)} simulation scenarios.")
+    finally:
+        db.close()
 
 
 if __name__ == "__main__":
