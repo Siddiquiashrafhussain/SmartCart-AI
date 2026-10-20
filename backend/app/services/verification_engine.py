@@ -199,6 +199,22 @@ class VerificationEngine:
         self.db.commit()
         self.db.refresh(verif_model)
 
+        # Broadcast real-time WebSocket update for store staff dashboard
+        try:
+            from backend.app.core.websocket import ws_manager
+            ws_manager.broadcast_sync({
+                "event_type": "SESSION_VERIFIED",
+                "timestamp": evaluated_at.isoformat(),
+                "session_id": session.id,
+                "verification_id": verification_uuid,
+                "outcome": outcome.value,
+                "checkout_decision": checkout_decision.value,
+                "staff_review_recommended": staff_review,
+                "confidence_score": confidence_score
+            })
+        except Exception as e:
+            logger.debug(f"WebSocket broadcast skipped: {e}")
+
         logger.info(
             f"Session {session_id} verified: outcome={outcome.value}, decision={checkout_decision.value}, "
             f"confidence={confidence_score:.2f}, simulated={is_simulated}"

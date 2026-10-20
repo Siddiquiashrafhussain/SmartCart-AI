@@ -10,6 +10,7 @@ from backend.app.api.v1.events import router as events_router
 from backend.app.api.v1.verification import router as verification_router
 from backend.app.api.v1.vision import router as vision_router
 from backend.app.api.v1.alerts import router as alerts_router
+from backend.app.api.v1.ws import router as ws_router
 
 api_v1_router = APIRouter()
 
@@ -20,3 +21,4 @@ api_v1_router.include_router(events_router)
 api_v1_router.include_router(verification_router)
 api_v1_router.include_router(vision_router)
 api_v1_router.include_router(alerts_router)
+api_v1_router.include_router(ws_router)

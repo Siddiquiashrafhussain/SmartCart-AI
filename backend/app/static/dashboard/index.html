@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartCart AI — Store Staff & Operations Console</title>
+  <meta name="description" content="Real-time retail inventory monitoring, computer vision shelf auditing, and multi-modal checkout verification dashboard for store attendants.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/dashboard/styles.css">
+</head>
+<body>
+
+  <!-- App Header & Navigation -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-logo" aria-hidden="true">🛒</div>
+      <div class="brand-text">
+        <h1>SmartCart AI</h1>
+        <span>Store Staff & Operations Console</span>
+      </div>
+    </div>
+
+    <div class="header-status-strip">
+      <div class="store-selector">
+        <span style="color: var(--accent-cyan);">🏪</span> Store #104 — SF Central Bay
+      </div>
+      <div id="ws-badge" class="connection-badge reconnecting" aria-live="polite">
+        <span class="pulse-dot"></span>
+        <span id="ws-badge-text">Connecting...</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs -->
+  <nav class="nav-tabs" aria-label="Main Navigation">
+    <button class="tab-btn active" data-tab="overview">
+      <span>📊</span> Operations Overview
+    </button>
+    <button class="tab-btn" data-tab="inventory">
+      <span>📦</span> Inventory & Catalogue
+    </button>
+    <button class="tab-btn" data-tab="shelf-audit">
+      <span>📷</span> Shelf Vision Auditing
+    </button>
+    <button class="tab-btn" data-tab="alerts">
+      <span>🔔</span> Restock Alerts
+      <span id="alerts-tab-badge" class="tab-badge">0</span>
+    </button>
+    <button class="tab-btn" data-tab="sessions">
+      <span>🛒</span> Checkout Verification
+    </button>
+    <button class="tab-btn" data-tab="simulator">
+      <span>⚡</span> Live Scenario Simulator
+    </button>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="app-container">
+
+    <!-- TAB 1: OPERATIONS OVERVIEW -->
+    <section id="tab-overview" class="tab-content active" aria-labelledby="tab-overview-heading">
+      <div class="kpi-grid">
+        <div class="kpi-card" style="border-top: 3px solid var(--accent-emerald);">
+          <div class="kpi-label">Visible Shelf Health Index</div>
+          <div id="kpi-shelf-health" class="kpi-value" style="color: var(--accent-emerald);">--%</div>
+          <div class="kpi-subtext">Facings strictly above safety stock</div>
+        </div>
+
+        <div class="kpi-card" style="border-top: 3px solid var(--accent-amber);">
+          <div class="kpi-label">Active Restock Alerts</div>
+          <div id="kpi-active-alerts" class="kpi-value" style="color: var(--accent-amber);">0</div>
+          <div class="kpi-subtext">Pending store attendant action</div>
+        </div>
+
+        <div class="kpi-card" style="border-top: 3px solid var(--accent-rose);">
+          <div class="kpi-label">Critical Stockouts</div>
+          <div id="kpi-stockouts" class="kpi-value" style="color: var(--accent-rose);">0</div>
+          <div class="kpi-subtext">0 visible items remaining on shelf</div>
+        </div>
+
+        <div class="kpi-card" style="border-top: 3px solid var(--accent-cyan);">
+          <div class="kpi-label">Low-Stock Warnings</div>
+          <div id="kpi-low-stock" class="kpi-value" style="color: var(--accent-cyan);">0</div>
+          <div class="kpi-subtext">Visible count &le; threshold</div>
+        </div>
+
+        <div class="kpi-card" style="border-top: 3px solid var(--accent-primary);">
+          <div class="kpi-label">Catalogued SKUs</div>
+          <div id="kpi-total-items" class="kpi-value" style="color: var(--text-main);">12</div>
+          <div class="kpi-subtext">Active merchandise items in store</div>
+        </div>
+      </div>
+
+      <div class="disclaimer-banner">
+        <div>🛡️</div>
+        <div>
+          <strong>Trust & Loss Prevention Architecture:</strong> Attendants handle system alerts and checkout discrepancies as collaborative customer assistance opportunities rather than definitive proof of theft.
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top: 24px;">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Urgent Store Attention Queue</h2>
+            <p class="panel-desc">Real-time alerts requiring immediate restocking or shelf front-facing</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="refreshAllData()">
+            <span>↻</span> Refresh Stream
+          </button>
+        </div>
+        <div id="urgent-attention-queue">
+          <div class="empty-state">
+            <div class="empty-state-icon">✓</div>
+            <p>No critical stockouts or unreviewed discrepancies. All shelf aisles operating normally.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: INVENTORY & CATALOGUE -->
+    <section id="tab-inventory" class="tab-content" aria-labelledby="tab-inventory-heading">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Store Inventory & Stock Separation</h2>
+            <p class="panel-desc">Authoritative warehouse/store ledger stock versus camera-observed visible shelf facings</p>
+          </div>
+          <div class="search-bar">
+            <input type="text" id="inventory-search" placeholder="Search by SKU, name, or barcode..." oninput="renderInventoryTable()">
+            <select id="inventory-cat-filter" onchange="renderInventoryTable()">
+              <option value="">All Categories</option>
+              <option value="Breakfast">Breakfast</option>
+              <option value="Beverages">Beverages</option>
+              <option value="Snacks">Snacks</option>
+              <option value="Bakery">Bakery</option>
+              <option value="Dairy">Dairy</option>
+              <option value="Produce">Produce</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Product Name</th>
+                <th>Category</th>
+                <th>Barcode (EAN-13)</th>
+                <th>Price</th>
+                <th>Tare Weight</th>
+                <th>Total Store Stock</th>
+                <th>Visible Shelf Stock</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-table-body">
+              <tr>
+                <td colspan="9" class="empty-state"><span class="spinner"></span> Loading inventory...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: SHELF VISION AUDITING -->
+    <section id="tab-shelf-audit" class="tab-content" aria-labelledby="tab-shelf-heading">
+      <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px;">
+        <!-- Left: Upload & Bay Selection -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Computer Vision Shelf Auditor</h2>
+              <p class="panel-desc">Upload a shelf camera frame to run OpenCV preprocessing, Laplacian blur detection, and YOLO object recognition.</p>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 18px;">
+            <label for="audit-shelf-select" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">
+              Select Target Shelf Bay:
+            </label>
+            <select id="audit-shelf-select" style="width: 100%; padding: 10px 14px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-main); font-size: 0.9rem;">
+              <option value="1">Shelf Bay #1 (AISLE-01-BAY-A) — Cereals & Granola</option>
+              <option value="2">Shelf Bay #2 (AISLE-01-BAY-B) — Beverages & Coffee</option>
+              <option value="3">Shelf Bay #3 (AISLE-02-BAY-A) — Snacks & Chips</option>
+            </select>
+          </div>
+
+          <div id="shelf-dropzone" class="dropzone" role="button" tabindex="0" aria-label="Upload shelf audit image">
+            <input type="file" id="shelf-file-input" accept="image/jpeg,image/png" style="display: none;">
+            <div style="font-size: 2.4rem; margin-bottom: 10px;">📸</div>
+            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 6px;">Drop shelf frame image here</h3>
+            <p style="font-size: 0.82rem; color: var(--text-dim);">or click to browse from disk (JPEG, PNG up to 10MB)</p>
+          </div>
+
+          <div id="vision-upload-status" style="margin-top: 14px; font-size: 0.85rem; min-height: 24px;"></div>
+
+          <div style="margin-top: 24px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+            <h4 style="font-size: 0.82rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">Action: Alert System Pipeline</h4>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px;">Push current audit observations into the real-time Restock Alert evaluation engine.</p>
+            <button id="btn-evaluate-alerts-from-vision" class="btn btn-primary" style="width: 100%;" disabled>
+              Push Observations to Alert Engine
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Diagnostics & Annotated Result -->
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <h2 class="panel-title">Vision Diagnostics & Detections</h2>
+              <p class="panel-desc">Real-time model inferences and image quality assessments</p>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 18px;">
+            <div id="vision-empty-preview" style="height: 280px; border: 1px dashed var(--border-subtle); border-radius: var(--radius-md); display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-dim);">
+              <span style="font-size: 2rem; margin-bottom: 8px;">🖼️</span>
+              <span>Annotated bounding boxes will appear here upon upload</span>
+            </div>
+            <img id="annotated-shelf-preview" src="" alt="Annotated Shelf Detections" style="max-width: 100%; max-height: 380px; border-radius: var(--radius-md); display: none; object-fit: contain; margin: 0 auto; box-shadow: var(--shadow-card);">
+          </div>
+
+          <h4 style="font-size: 0.82rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">Visible Item Class Counts:</h4>
+          <div id="vision-class-counts" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px;">
+            <span style="color: var(--text-dim); font-size: 0.85rem;">No active inference.</span>
+          </div>
+
+          <h4 style="font-size: 0.82rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">Image Quality Metrics:</h4>
+          <div id="vision-quality-metrics" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <span style="color: var(--text-dim); font-size: 0.85rem;">Awaiting image upload...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: RESTOCK ALERTS -->
+    <section id="tab-alerts" class="tab-content" aria-labelledby="tab-alerts-heading">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Restock Alerts & Attendant Workflows</h2>
+            <p class="panel-desc">Deduplicated notifications triggered when visible shelf stock drops below safety levels</p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary alert-filter-btn btn-sm" data-filter="ALL" onclick="filterAlerts('ALL')">All Alerts</button>
+            <button class="btn btn-secondary alert-filter-btn btn-sm" data-filter="ACTIVE" onclick="filterAlerts('ACTIVE')">Active (Unresolved)</button>
+            <button class="btn btn-secondary alert-filter-btn btn-sm" data-filter="RESOLVED" onclick="filterAlerts('RESOLVED')">Resolved</button>
+          </div>
+        </div>
+
+        <div id="alerts-list-container">
+          <div class="empty-state">
+            <span class="spinner"></span> Loading alerts...
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: CHECKOUT VERIFICATION INSPECTOR -->
+    <section id="tab-sessions" class="tab-content" aria-labelledby="tab-sessions-heading">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Shopping Session & Checkout Verification Inspector</h2>
+            <p class="panel-desc">Inspect multi-modal correlation: barcode scans, camera shelf pickups, and cart scale weight deltas</p>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-bottom: 24px; align-items: center; max-width: 600px;">
+          <input type="number" id="inspect-session-id-input" placeholder="Enter Shopping Session ID (e.g. 1)" style="flex: 1; padding: 10px 14px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-main);">
+          <button class="btn btn-primary" onclick="inspectSessionVerification()">
+            Verify Session Evidence
+          </button>
+        </div>
+
+        <div id="session-verification-result">
+          <div class="empty-state">
+            <div class="empty-state-icon">🔍</div>
+            <p>Enter a session ID or trigger a simulated scenario below to inspect multi-modal verification.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 6: LIVE SCENARIO SIMULATOR -->
+    <section id="tab-simulator" class="tab-content" aria-labelledby="tab-simulator-heading">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 class="panel-title">Hackathon Demonstration Scenario Runner</h2>
+            <p class="panel-desc">Quickly trigger end-to-end retail scenarios with simulated IoT sensor and camera streams</p>
+          </div>
+        </div>
+
+        <p style="font-size: 0.88rem; color: var(--text-muted); margin-bottom: 16px;">
+          Select any scenario below to automatically create a shopping session, inject realistic scan/pickup/weight telemetry, evaluate the verification engine, and stream live updates across all open attendant dashboards via WebSockets.
+        </p>
+
+        <div id="simulator-btn-strip" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px;"></div>
+
+        <div style="background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 16px;">
+          <h4 style="font-size: 0.82rem; text-transform: uppercase; color: var(--text-dim); margin-bottom: 8px;">Execution Telemetry Log:</h4>
+          <div id="simulation-run-log" style="font-family: monospace; font-size: 0.85rem; color: var(--text-muted);">
+            Awaiting scenario selection...
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Attendant Alert Resolution Modal -->
+  <div id="resolve-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="resolve-modal-title">
+    <div class="modal-card">
+      <input type="hidden" id="resolve-alert-id">
+      <h3 id="resolve-modal-title" style="font-size: 1.25rem; font-weight: 700; margin-bottom: 6px;">Resolve & Restock Shelf</h3>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+        Restocking item: <strong id="resolve-product-title" style="color: var(--accent-cyan);">--</strong>
+      </p>
+
+      <div style="margin-bottom: 14px;">
+        <label for="resolve-units-input" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">
+          Units Added from Warehouse Backroom:
+        </label>
+        <input type="number" id="resolve-units-input" value="4" min="1" max="100" style="width: 100%; padding: 10px 14px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-main);">
+      </div>
+
+      <div style="margin-bottom: 20px;">
+        <label for="resolve-note-input" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">
+          Attendant Resolution Note:
+        </label>
+        <input type="text" id="resolve-note-input" value="Replenished stock from warehouse backroom" style="width: 100%; padding: 10px 14px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); color: var(--text-main);">
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn btn-secondary" onclick="closeResolveModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitAlertResolution()">Confirm Restock & Close Alert</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Dashboard Client Logic -->
+  <script src="/static/dashboard/app.js"></script>
+</body>
+</html>

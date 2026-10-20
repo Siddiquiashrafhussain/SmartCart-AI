@@ -212,6 +212,18 @@ class InventoryAlertService:
         for a in affected_alerts:
             self.db.refresh(a)
 
+        # Broadcast real-time WebSocket update for store staff dashboard
+        try:
+            from backend.app.core.websocket import ws_manager
+            for a in affected_alerts:
+                ws_manager.broadcast_sync({
+                    "event_type": "ALERT_TRIGGERED",
+                    "timestamp": now.isoformat(),
+                    "alert": self._format_alert_response(a).model_dump(mode="json")
+                })
+        except Exception as e:
+            logger.debug(f"WebSocket broadcast skipped: {e}")
+
         summary_msg = (
             f"Evaluated {len(observations)} shelf observations on Shelf #{shelf_id}. "
             f"Created {alerts_created} new alert(s), updated/deduplicated {alerts_updated} alert(s)."
@@ -312,6 +324,17 @@ class InventoryAlertService:
 
         self.db.commit()
         self.db.refresh(alert)
+
+        # Broadcast real-time WebSocket update for store staff dashboard
+        try:
+            from backend.app.core.websocket import ws_manager
+            ws_manager.broadcast_sync({
+                "event_type": "ALERT_RESOLVED",
+                "timestamp": now.isoformat(),
+                "alert": self._format_alert_response(alert).model_dump(mode="json")
+            })
+        except Exception as e:
+            logger.debug(f"WebSocket broadcast skipped: {e}")
 
         logger.info(f"Restock alert #{alert.id} marked as resolved.")
         return self._format_alert_response(alert)

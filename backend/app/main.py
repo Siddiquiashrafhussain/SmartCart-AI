@@ -5,9 +5,11 @@ Main entry point for REST APIs, middleware, and database lifecycle.
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from backend.app.core.config import settings
 from backend.app.core.database import engine, SessionLocal
@@ -95,6 +97,30 @@ def health_check():
 # Register API v1 Routes
 app.include_router(api_v1_router, prefix=settings.API_V1_PREFIX)
 
+# Static Files & Dashboard Mounts
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
+
+@app.get("/dashboard", include_in_schema=False)
+def dashboard_view():
+    """
+    Staff admin dashboard web interface for inventory, shelf vision, and checkout verification.
+    """
+    dashboard_html = STATIC_DIR / "dashboard" / "index.html"
+    if dashboard_html.exists():
+        return FileResponse(str(dashboard_html))
+    return JSONResponse(status_code=404, content={"message": "Dashboard UI not found"})
+
+
+@app.get("/admin", include_in_schema=False)
+def admin_redirect():
+    """
+    Convenience redirect for store administrators to /dashboard.
+    """
+    return RedirectResponse(url="/dashboard")
+
 
 @app.get("/", include_in_schema=False)
 def root():
@@ -102,5 +128,6 @@ def root():
         "project": "SmartCart AI",
         "tagline": "Shop Smarter. Verify Instantly. Restock Proactively.",
         "documentation": "/docs",
-        "health": "/api/v1/health"
+        "health": "/api/v1/health",
+        "dashboard": "/dashboard"
     }
